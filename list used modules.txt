@@ -1,0 +1,10 @@
+Необходимые пакеты 
+aiogram
+pandas
+openpyxl
+curl-cffi
+g4f
+nest_asyncio
+aiosmtplib
+bcrypt
+pyshorteners
