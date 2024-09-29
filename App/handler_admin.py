@@ -90,7 +90,7 @@ async def get_message_mailing(message: Message, state: FSMContext):
 async def send_message_to_malling(users, data_message):
     for i in users:
         try:
-            await bot.send_message(i[0], data_message)
+            await bot.send_message(i[0], data_message, parse_mode='Markdown')
         except exceptions.TelegramForbiddenError:
             print(i, 'ban')
         except Exception as e:
