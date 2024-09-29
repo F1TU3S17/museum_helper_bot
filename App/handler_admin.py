@@ -13,13 +13,15 @@ from aiogram.filters import Command
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+
+from aiogram import exceptions
+from aiogram.utils.chat_action import ChatActionSender
+from aiogram.exceptions import TelegramAPIError
+from aiogram.utils import chat_action
 import keyboards as kb
 
-from config import Config, load_config
-
 router_admin_panel = Router()
-config: Config = load_config()
-bot = Bot(token=config.tg_bot.token)
+bot = Bot(token='6971765827:AAGGYCGi7ouJ_0A5ZKwFX-VPbm5Cl_sSI68')
 
 class Admin(StatesGroup):
     login = State()
@@ -83,6 +85,18 @@ async def get_message_mailing(message: Message, state: FSMContext):
     await state.update_data(message=message.text)
     await message.answer('Что дальше?', reply_markup=kb.submit_kb)
     await state.set_state(Admin.mailing)
+
+
+async def send_message_to_malling(users, data_message):
+    for i in users:
+        try:
+            await bot.send_message(i[0], data_message)
+        except exceptions.TelegramForbiddenError:
+            print(i, 'ban')
+        except Exception as e:
+            print(f'warning for {i[0]}: {e}')
+
+
 @router_admin_panel.message(Admin.mailing)
 async def go_mailing(message: Message, state: FSMContext):
     await state.update_data(mailing=message.text)
@@ -92,11 +106,13 @@ async def go_mailing(message: Message, state: FSMContext):
         data_message = str(data.get('message'))
         users = await users_list()
         await message.answer('***Выполняем рассылку***⏳', parse_mode='Markdown')
-        counter = 0
-        for i in users:
-            await bot.send_message(i[0], data_message)
-            counter += 1
-        await message.answer(f'***Сообщение доставлено всем*** ___"{counter}"___ ***пользователям***📧', parse_mode='Markdown', reply_markup=kb.admin_kb)
+        try:
+            await send_message_to_malling(users, data_message)
+        except exceptions.TelegramForbiddenError:
+            print('ban')
+        except Exception as e:
+            print(f'warning')
+        await message.answer(f'***Сообщение доставлено всем*** ***пользователям***📧', parse_mode='Markdown', reply_markup=kb.admin_kb)
     else:
         await message.answer('Как вам угодно😊', reply_markup=kb.admin_kb)
     await state.clear()
@@ -263,7 +279,7 @@ async def no_add_event(message:Message, state: FSMContext):
     await state.set_state(Admin.logined)
     await message.answer('Хорошо, в этот раз не будет ничего добавлять!', reply_markup=kb.admin_kb)
 
-@router_admin_panel.message(F.text == "Сделать рассылку", Admin.logined)
+@router_admin_panel.message(F.text == "Сделать рассылку✔", Admin.logined)
 async def go_mailing_about_event(message:Message, state: FSMContext):
     data = await state.get_data()
     data_name = str(data.get('name'))
@@ -274,12 +290,14 @@ async def go_mailing_about_event(message:Message, state: FSMContext):
                     f'Оно начнется:***{data_start_time} и продлится до {data_end_time}***\n⏳'
                     f'Узнать подробности и установить напоминание можно в прямо здесь календаре мероприятий!📋')
     await message.answer('***Выполняем рассылку***⏳', parse_mode='Markdown')
-    counter = 0
-    for i in users:
-        await bot.send_message(i[0], data_message, parse_mode='Markdown')
-        counter += 1
-    await message.answer(f'***Сообщение доставлено всем*** ___"{counter}"___ ***пользователям***📧',
-                         parse_mode='Markdown', reply_markup=kb.admin_kb)
+    try:
+        await send_message_to_malling(users, data_message)
+    except exceptions.TelegramForbiddenError:
+        print('ban')
+    except Exception as e:
+        print(f'warning')
+    await message.answer(f'***Сообщение доставлено всем*** ***пользователям***📧', parse_mode='Markdown',
+                         reply_markup=kb.admin_kb)
     await state.clear()
     await state.set_state(Admin.logined)
 @router_admin_panel.message(F.text == "Не делать рассылку", Admin.logined)

@@ -15,14 +15,15 @@ from aiogram.filters import CommandStart, Command
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 
+from aiogram import exceptions
+from aiogram.exceptions import TelegramAPIError
+from aiogram.utils import chat_action
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.utils.chat_action import ChatActionSender
 import keyboards as kb
 router = Router()
 
-from config import Config, load_config
-
-config: Config = load_config()
-bot = Bot(token= config.tg_bot.token)
+bot = Bot(token='6971765827:AAGGYCGi7ouJ_0A5ZKwFX-VPbm5Cl_sSI68')
 emojis = ['🟦','🟨','🟪','🟩','🟥','🟧','🟫','⬜️','⬛️']
 class Gpt(StatesGroup):
     prompt = State()
@@ -175,6 +176,21 @@ async def check_capth(cq: CallbackQuery, state: FSMContext):
         await state.update_data(capch=correct_emoji)
         await cq.message.edit_text(f'Другой цвет! "{correct_emoji}"', reply_markup=kb.capch_kbr(emojis))
 
+
+
+async def send_message_to_admin(admins, data_name, data_mark,data_message):
+    for admin in admins:
+        try:
+            async with ChatActionSender.typing(bot=bot, chat_id=admin):
+                await bot.send_message(admin, f'На мероприятие {data_name} оставлен отзыв\nОценка:{data_mark}\n'
+                                              f'Содержание: \"{data_message}\"\n'
+                                              f'Если отзыв содержит нецензурную лексики или с ним что-то не так, то вы можете его удалить в панели администратора')
+        except exceptions.TelegramForbiddenError:
+            print("Admin error")
+        except Exception as e:
+            print("Admin error")
+
+
 @router.message(Review.capch_is_true)
 async def check_capth(message: Message, state: FSMContext):
     await state.update_data(capch_is_true=message.text)
@@ -192,16 +208,18 @@ async def check_capth(message: Message, state: FSMContext):
             await message.answer('Отзыв успешно отправлен!',reply_markup=kb.create_keyboard())
             admins = await admins_list()
             #print(admins)
-            counter = 0
-            for admin in admins:
-                await bot.send_message(admin, f'На мероприятие {data_name} оставлен отзыв\nОценка:{data_mark}\n'
-                                             f'Содержание: \"{data_message}\"\n'
-                                             f'Если отзыв содержит нецензурную лексики или с ним что-то не так, то вы можете его удалить в панели администратора')
-                counter += 1
+            try:
+                await send_message_to_admin(admins, data_name, data_mark, data_message)
+            except exceptions.TelegramForbiddenError:
+                print("Admin error")
+            except Exception as e:
+                print("Admin error")
 
         else:
+            await message.answer('Так...', reply_markup=kb.main)
             await message.answer('Вы уже оставляли отзыв на это мероприятие', reply_markup=kb.create_keyboard())
     else:
+        await message.answer('Хорошо!', reply_markup=kb.main)
         await message.answer('Как вам угодно!', reply_markup=kb.create_keyboard())
 
     await state.clear()
